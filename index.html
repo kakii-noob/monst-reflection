@@ -184,7 +184,6 @@ file.onchange=e=>{
    updateAngleUI();
    draw();
    updateBarScale();
-   if(gaugeOn)positionGauge();
  };
  photo.src=url;
 };
@@ -197,7 +196,7 @@ function fitStage(){
  stage.style.height=Math.round(imgH*scale)+'px';
  cv.width=imgW; cv.height=imgH;
 }
-window.addEventListener('resize',()=>{if(!stage.hidden){fitStage();if(gaugeOn)positionGauge();draw();}requestAnimationFrame(updateBarScale);});
+window.addEventListener('resize',()=>{if(!stage.hidden){fitStage();draw();}requestAnimationFrame(updateBarScale);});
 
 function bounds(){
    const topY = 299;
@@ -329,9 +328,11 @@ function reflectPath(b){
    ].filter(Boolean).sort((a,c)=>a.t-c.t);
    if(!hits.length)break;
    const h=hits[0]; pts.push({x:h.x,y:h.y});
-   if(Math.abs(h.x-b.l)<1e-3||Math.abs(h.x-b.r)<1e-3) dx=-dx;
-   else dy=-dy;
-   x=h.x+dx*.05;y=h.y+dy*.05;
+   // A corner hits both axes; nearby single-wall hits must stay distinct.
+   if(Math.abs(h.x-b.l)<1e-7||Math.abs(h.x-b.r)<1e-7) dx=-dx;
+   if(Math.abs(h.y-b.t)<1e-7||Math.abs(h.y-b.b)<1e-7) dy=-dy;
+   // rayToSegment ignores t=0, so no nudge that could skip a nearby wall is needed.
+   x=h.x;y=h.y;
  }
  // Continue last segment to boundary/long distance.
  let ex=x+dx*Math.max(imgW,imgH)*2, ey=y+dy*Math.max(imgW,imgH)*2;
@@ -766,7 +767,8 @@ document.getElementById('voiceGenerate').addEventListener('click',()=>{
 function convertGestureDuration(b64, durationSec, lengthPx, deviceScale){
   try{
     const raw = atob(b64.trim());
-    const matches = [...raw.matchAll(/\{([0-9.]+),\s*([0-9.]+)\}/g)];
+    // Generated NSPoint strings are padded with spaces before the closing brace.
+    const matches = [...raw.matchAll(/\{\s*(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)\s*\}/g)];
     if(!matches || matches.length < 2) throw new Error('ジェスチャーの座標を読み取れませんでした。');
     
     // 実際のファイルデータから「始点」と「終点」を取得

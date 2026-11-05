@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>アクセ生成サイト</title>
+<link rel="stylesheet" href="planner.css">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Reggae+One&display=swap');
 :root{--safe-area-bottom:env(safe-area-inset-bottom,0px)}
@@ -91,6 +92,48 @@ input{ -webkit-touch-callout:none; }
 </style>
 </head>
 <body>
+<div id="plannerToolbar">
+ <select id="angleMode" aria-label="角度モード"><option value="1024">1024方向（仮定）</option><option value="free">自由角度</option></select>
+ <span id="directionIndex" aria-live="polite"></span>
+ <button id="plannerToggle" type="button" aria-expanded="false" aria-controls="plannerPanel">配置・ルート検索</button>
+</div>
+<div id="plannerPlacement" hidden><span id="placementHint"></span><button id="placementDone" type="button">設定に戻る</button></div>
+<aside id="plannerPanel" hidden aria-label="配置とルート検索">
+ <div class="plannerHeading"><h2>ルートを探す</h2><button id="plannerClose" type="button" aria-label="ルート設定を閉じる">×</button></div>
+ <p class="plannerHint">貫通キャラ向け。画像に判定を置き、触れる順番を指定します。</p>
+ <section><h3>1. 始点と対象を配置</h3>
+  <div class="plannerTools" id="plannerTools">
+   <button type="button" data-tool="start">始点を置く</button><button type="button" data-tool="select">配置を動かす</button>
+   <button type="button" data-tool="boss">ボス</button><button type="button" data-tool="book">本＋内部弱点</button>
+   <button type="button" data-tool="enemy">敵</button><button type="button" data-tool="weak">弱点</button><button type="button" data-tool="mine">地雷</button>
+  </div>
+  <p class="plannerHint">ボタンを選ぶと画像上に置けます。本・敵・弱点の大きさは下で調整してください。</p>
+  <div id="objectList" class="objectList"></div>
+  <form id="objectEditor" hidden onsubmit="return false">
+   <label>名前<input id="objectName" maxlength="30" autocomplete="off"></label>
+   <div class="plannerColumns"><label>横半径（画像px）<input id="objectRx" type="number" min="1" step="1"></label><label>縦半径（画像px）<input id="objectRy" type="number" min="1" step="1"></label></div>
+   <label id="parentField">弱点の所属先<select id="objectParent"></select></label>
+   <label id="avoidField" class="plannerCheck"><input id="objectAvoid" type="checkbox">最後の条件まで接触を避ける</label>
+   <div class="plannerColumns"><button id="addCondition" type="button">順番条件に追加</button><button id="deleteObject" type="button" class="danger">この対象を削除</button></div>
+  </form>
+ </section>
+ <section><h3>2. 触れる順番</h3>
+  <button id="bookPreset" type="button" class="fullWidth">ボス → 地雷2個で本 → 内部弱点</button>
+  <ol id="conditionList"></ol>
+  <p class="plannerHint">地雷数は接触直前の必要数。条件は順番に達成します。地雷の回収は経路から自動判定します。</p>
+ </section>
+ <section><h3>3. 探索とずれの検査</h3>
+  <div class="plannerColumns"><label>開始時の地雷数<input id="initialMines" type="number" min="0" max="4" step="1" value="0"></label><label>反射上限<input id="searchBounces" type="number" min="0" max="20" step="1" value="6"></label></div>
+  <div class="plannerColumns"><label>距離上限（盤面幅×）<input id="searchDistance" type="number" min="0.5" max="50" step="0.5" value="6"></label><label>キャラの接触半径（画像px）<input id="playerRadius" type="number" min="0" max="100" step="1" value="10"></label></div>
+  <div class="plannerColumns"><label>前後の角度（段）<input id="angleTolerance" type="number" min="0" max="3" step="1" value="1"></label><label>始点のずれ（画像px）<input id="startTolerance" type="number" min="0" max="30" step="1" value="2"></label></div>
+  <p class="plannerHint">1024等分・最寄り丸めを仮定して検索します。実機の角度仕様は未検証です。</p>
+  <div class="plannerColumns"><button id="searchRoutes" type="button" class="primary">ルートを検索</button><button id="cancelSearch" type="button" disabled>検索を中止</button></div>
+  <p id="searchStatus" role="status" aria-live="polite"></p>
+  <div id="routeResults"></div>
+  <p class="plannerHint">誤差検査の成立数は成功確率ではありません。敵による反射・減速・ワープ・与ダメージは計算しません。地雷は敵本体・弱点への接触ごとに1個消費する近似です。</p>
+ </section>
+ <section><h3>現在の線の接触順</h3><div id="contactLog"></div></section>
+</aside>
 <div id="bar">
   <button id="fileBtn" type="button">画像を選択</button>
   <input id="file" type="file" accept="image/*">
@@ -146,6 +189,7 @@ input{ -webkit-touch-callout:none; }
     <canvas id="cv"></canvas>
   </div>
 </div>
+<script src="route-core.js"></script>
 <script>
 const file=document.getElementById('file'), fileBtn=document.getElementById('fileBtn');
 const stage=document.getElementById('stage'), photo=document.getElementById('photo'), cv=document.getElementById('cv');
@@ -158,6 +202,11 @@ let cursor={x:0,y:0}; // image coordinates
 let pullAngle=-Math.PI/2;
 let active=null, lastX=0,lastY=0;
 let touchStartX=0,touchStartY=0;
+let angleMode='1024';
+function setShotAngle(radians){
+ const deg=RoutePlannerCore.normalize(-radians*180/Math.PI);
+ pullAngle=-(angleMode==='1024'?RoutePlannerCore.snapAngle(deg).degrees:deg)*Math.PI/180;
+}
 
 fileBtn.onclick=()=>file.click();
 empty.onclick=()=>{ if(stage.hidden) file.click(); };
@@ -181,6 +230,7 @@ file.onchange=e=>{
    }else{
      cursor.x=(b.l+b.r)/2; cursor.y=(b.t+b.b)/2;
    }
+   if(window.plannerImageChanged)window.plannerImageChanged();
    updateAngleUI();
    draw();
    updateBarScale();
@@ -275,8 +325,10 @@ function draw(){
  if(!imgW)return;
  ctx.clearRect(0,0,imgW,imgH);
  const b=bounds();
+ if(window.plannerBeforeDraw)window.plannerBeforeDraw();
  drawReflection(b);
  drawCursor();
+ if(window.plannerAfterDraw)window.plannerAfterDraw(ctx);
 }
 
 function drawCursor(){
@@ -314,37 +366,8 @@ function rayToSegment(px,py,dx,dy,x1,y1,x2,y2){
  return null;
 }
 function reflectPath(b){
- // Shoot directly toward the tapped/released position.
- let x=cursor.x,y=cursor.y;
- let dx=Math.cos(pullAngle),dy=Math.sin(pullAngle);
- // angle is the travel direction.
- const pts=[{x,y}];
- for(let k=0;k<reflections;k++){
-   const hits=[
-    rayToSegment(x,y,dx,dy,b.l,b.t,b.r,b.t),
-    rayToSegment(x,y,dx,dy,b.r,b.t,b.r,b.b),
-    rayToSegment(x,y,dx,dy,b.r,b.b,b.l,b.b),
-    rayToSegment(x,y,dx,dy,b.l,b.b,b.l,b.t)
-   ].filter(Boolean).sort((a,c)=>a.t-c.t);
-   if(!hits.length)break;
-   const h=hits[0]; pts.push({x:h.x,y:h.y});
-   // A corner hits both axes; nearby single-wall hits must stay distinct.
-   if(Math.abs(h.x-b.l)<1e-7||Math.abs(h.x-b.r)<1e-7) dx=-dx;
-   if(Math.abs(h.y-b.t)<1e-7||Math.abs(h.y-b.b)<1e-7) dy=-dy;
-   // rayToSegment ignores t=0, so no nudge that could skip a nearby wall is needed.
-   x=h.x;y=h.y;
- }
- // Continue last segment to boundary/long distance.
- let ex=x+dx*Math.max(imgW,imgH)*2, ey=y+dy*Math.max(imgW,imgH)*2;
- const last= [
-   rayToSegment(x,y,dx,dy,b.l,b.t,b.r,b.t),
-   rayToSegment(x,y,dx,dy,b.r,b.t,b.r,b.b),
-   rayToSegment(x,y,dx,dy,b.r,b.b,b.l,b.b),
-   rayToSegment(x,y,dx,dy,b.l,b.b,b.l,b.t)
- ].filter(Boolean).sort((a,c)=>a.t-c.t)[0];
- if(last){ex=last.x;ey=last.y}
- pts.push({x:ex,y:ey});
- return pts;
+ return RoutePlannerCore.traceRay({start:cursor,degrees:-pullAngle*180/Math.PI,bounds:b,
+   maxBounces:reflections,maxDistance:window.plannerGuideDistance??Infinity}).points;
 }
 function drawReflection(b){
  const s=(b.r-b.l)/1057;
@@ -407,6 +430,7 @@ function nearestArm(p){
 }
 cv.addEventListener('pointerdown',e=>{
  if(stage.hidden || zoomMode)return;
+ if(window.plannerPointerDown?.(e))return;
  cv.setPointerCapture(e.pointerId);
  const p=pos(e), arm=nearestArm(p);
  active=arm>=0?'move':'angle';
@@ -414,12 +438,13 @@ cv.addEventListener('pointerdown',e=>{
  touchStartX=p.x;touchStartY=p.y;
  if(active==='angle'){
    const vx=p.x-cursor.x, vy=p.y-cursor.y;
-   if(Math.hypot(vx,vy)>1) pullAngle=Math.atan2(-vy,-vx);
+   if(Math.hypot(vx,vy)>1) setShotAngle(Math.atan2(-vy,-vx));
    updateAngleUI(); draw();
  }
  e.preventDefault();
 });
 cv.addEventListener('pointermove',e=>{
+ if(window.plannerPointerMove?.(e))return;
  if(!active)return;
  // Safari/iPhoneでも可能な限り細かいpointerイベントをすべて処理。
  const events=e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
@@ -433,7 +458,7 @@ cv.addEventListener('pointermove',e=>{
      // 指の位置から連続値の角度を直接計算
      const vx=p.x-touchStartX, vy=p.y-touchStartY;
      if(Math.hypot(vx,vy)>0.01){
-       pullAngle=Math.atan2(-vy,-vx);
+       setShotAngle(Math.atan2(-vy,-vx));
      }
    }
    lastX=p.x;lastY=p.y;
@@ -444,7 +469,8 @@ cv.addEventListener('pointermove',e=>{
 function updateAngleUI(){
  let deg = (-pullAngle * 180 / Math.PI) % 360;
  if(deg < 0) deg += 360;
- document.getElementById('angleDisplay').querySelector('.angleValue').textContent = deg.toFixed(2) + '°';
+ document.getElementById('angleDisplay').querySelector('.angleValue').textContent = deg.toFixed(angleMode==='1024'?4:2) + '°';
+ document.getElementById('directionIndex').textContent=angleMode==='1024'?`#${RoutePlannerCore.snapAngle(deg).index} / 1024`:'';
 }
 // 角度表示をダブルタップすると数値キーボードで直接編集できる。
 (function enableAngleDirectInput(){
@@ -467,7 +493,7 @@ function updateAngleUI(){
      if(!Number.isFinite(n)||input.value.trim()==='') n=current;
      n=Math.max(0,Math.min(359.99,n));
      n=Math.round(n*100)/100;
-     pullAngle = -n * Math.PI / 180;
+     setShotAngle(-n * Math.PI / 180);
    }
    const span=document.createElement('span');span.className='angleValue';input.replaceWith(span);updateAngleUI();draw();
   };
@@ -479,11 +505,12 @@ function updateAngleUI(){
  display.addEventListener('touchend',e=>{const now=Date.now();if(now-lastTap<350){e.preventDefault();openEditor();lastTap=0}else lastTap=now},{passive:false});
 })();
 function end(e){
+ if(window.plannerPointerUp?.(e))return;
  if(active==='angle' && e){
    const p=pos(e);
    const vx=p.x-touchStartX, vy=p.y-touchStartY;
    if(Math.hypot(vx,vy)>2){
-     pullAngle=Math.atan2(-vy,-vx);
+     setShotAngle(Math.atan2(-vy,-vx));
    }
    updateAngleUI(); draw();
  }
@@ -503,8 +530,9 @@ const angleMinus=document.getElementById('angleMinus'), anglePlus=document.getEl
 function changeAngle(delta){
   let currentDeg = (-pullAngle * 180 / Math.PI) % 360;
   if(currentDeg < 0) currentDeg += 360;
-  let newDeg = (Math.round(currentDeg * 100) + delta * 100 + 36000) % 36000 / 100;
-  pullAngle = -newDeg * Math.PI / 180;
+  const newDeg=angleMode==='1024'?(RoutePlannerCore.snapAngle(currentDeg).index+Math.sign(delta))*RoutePlannerCore.STEP:
+    (Math.round(currentDeg * 100) + delta * 100 + 36000) % 36000 / 100;
+  setShotAngle(-newDeg * Math.PI / 180);
   updateAngleUI();
   draw();
 }
@@ -855,5 +883,6 @@ if(voiceConvertBtn && voiceConvertFile){
 }
 
 </script>
+<script src="planner-ui.js"></script>
 </body>
 </html>

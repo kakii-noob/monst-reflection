@@ -55,6 +55,7 @@ function loadApp() {
     URL: { createObjectURL(blob) { const url = `blob:${blobs.size}`; blobs.set(url, blob); return url; }, revokeObjectURL() {} },
     alert(message) { throw new Error(message); },
   });
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../route-core.js'), 'utf8'), scope);
   vm.runInContext(script, scope);
   return { scope, get, windowEvents, downloads, blobs, get draws() { return draws; } };
 }

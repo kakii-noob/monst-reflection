@@ -1,0 +1,42 @@
+#plannerToolbar{position:fixed;top:max(8px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);width:min(96vw,620px);display:flex;align-items:center;gap:7px;z-index:30;padding:6px;background:#141a24ed;border:1px solid #465064;border-radius:12px;font-family:-apple-system,BlinkMacSystemFont,"Noto Sans JP",sans-serif}
+#plannerToolbar select{min-width:0;flex:1;background:#242b38;color:#fff;border:1px solid #485367;border-radius:8px;height:38px;padding:0 5px;font-size:13px}
+#plannerToolbar button{height:38px;font-size:13px;padding:0 9px;font-family:inherit}
+#directionIndex{font-size:10px;white-space:nowrap;color:#9dd5ff;font-variant-numeric:tabular-nums}
+#plannerPanel{position:fixed;right:max(10px,env(safe-area-inset-right));top:64px;bottom:12px;width:min(360px,calc(100vw - 20px));overflow:auto;overscroll-behavior:contain;z-index:40;background:#141a24fa;border:1px solid #465064;border-radius:16px;padding:14px;box-shadow:0 12px 36px #0008;font-family:-apple-system,BlinkMacSystemFont,"Noto Sans JP",sans-serif;color:#edf3fc;-webkit-user-select:text;user-select:text}
+#plannerPanel[hidden],#plannerPlacement[hidden],#plannerPanel [hidden]{display:none!important}
+.plannerHeading{display:flex;justify-content:space-between;align-items:center;gap:8px}
+#plannerPanel h2{font-size:19px;margin:0}
+#plannerPanel h3{font-size:14px;margin:0 0 10px;color:#c7d9f3}
+#plannerPanel section{border-top:1px solid #354254;margin-top:15px;padding-top:14px}
+#plannerPanel button{font-family:inherit;font-size:12px;border-radius:8px;height:auto;min-height:36px;padding:7px 8px;touch-action:manipulation;line-height:1.35}
+#plannerPanel button:disabled{opacity:.45}
+#plannerPanel label{display:flex;flex-direction:column;gap:4px;font-size:11px;color:#c1ccdc;min-width:0}
+#plannerPanel input,#plannerPanel select{width:100%;min-width:0;height:35px;border-radius:7px;border:1px solid #49596d;background:#0b111c;color:#edf3fc;padding:4px 7px;font:16px -apple-system,BlinkMacSystemFont,sans-serif;-webkit-user-select:text;user-select:text}
+#plannerPanel .plannerCheck{display:flex;flex-direction:row;align-items:center;font-size:12px}
+#plannerPanel input[type=checkbox]{width:18px;height:18px;flex-shrink:0}
+.plannerColumns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:9px 0}
+.plannerTools{display:flex;flex-wrap:wrap;gap:6px}
+#plannerPanel .primary{background:#246549;border-color:#4c9972;font-weight:700}
+#plannerPanel .danger{color:#ffacac}
+#plannerPanel .fullWidth{width:100%}
+.plannerHint{font-size:11px!important;line-height:1.55;color:#99abc2!important;margin:8px 0}
+.objectList{display:flex;flex-wrap:wrap;gap:5px;margin:9px 0}
+.objectList button[aria-pressed=true]{background:#274a71;border-color:#80bbff}
+#objectEditor{padding:10px;border:1px solid #3a4c63;border-radius:9px;background:#1c2735}
+#conditionList{padding:0;list-style:none;margin:10px 0}
+#conditionList li{display:flex;align-items:center;gap:5px;border-bottom:1px solid #283647;padding:7px 0;font-size:12px}
+#conditionList .conditionName{flex:1;min-width:0;overflow-wrap:anywhere}
+#conditionList input{width:43px;flex:0 0 43px}
+#conditionList .stepButton{min-height:30px;padding:4px 6px}
+#searchStatus{font-size:12px;line-height:1.5;min-height:18px;color:#aee3ce;white-space:pre-wrap}
+#routeResults{display:grid;gap:6px}
+#routeResults button{text-align:left;display:flex;justify-content:space-between;gap:7px;background:#1c2b3f}
+#routeResults button[aria-pressed=true]{border-color:#6dd2ad;background:#204638}
+#routeResults small{display:block;color:#b4c8e0;font-size:10px;margin-top:3px}
+#contactLog{max-height:240px;overflow:auto;font-size:11px;line-height:1.6;color:#c4d3e7}
+#contactLog div{display:flex;justify-content:space-between;gap:8px;padding:3px 0;border-bottom:1px solid #263343}
+#contactLog .goalEvent{color:#92e8b9}
+#plannerPlacement{position:fixed;z-index:35;top:68px;left:50%;transform:translateX(-50%);display:flex;gap:8px;align-items:center;background:#1e3955f2;padding:8px 10px;border:1px solid #80b5ec;border-radius:10px;width:min(94vw,500px);font:12px -apple-system,BlinkMacSystemFont,sans-serif}
+#plannerPlacement span{flex:1}
+#plannerPlacement button{font:12px -apple-system,BlinkMacSystemFont,sans-serif;padding:5px 8px;height:auto;min-height:32px}
+@media(max-width:650px){#plannerPanel{top:auto;bottom:max(6px,env(safe-area-inset-bottom));left:6px;right:6px;width:auto;max-height:66vh;padding:13px}#plannerToolbar{gap:4px}#plannerToolbar button{font-size:12px}#directionIndex{font-size:9px}}
